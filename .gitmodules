@@ -1,0 +1,6 @@
+[submodule "bert"]
+	path = bert
+	url = https://github.com/google-research/bert.git
+[submodule "ERNIE"]
+	path = ERNIE
+	url = https://github.com/PaddlePaddle/ERNIE.git
