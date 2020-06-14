@@ -1,12 +1,6 @@
 import collections
 import tensorflow as tf
 import six
-# def unigrams_and_bigrams_lower_tokenizer(s):
-#     tokens = s.lower().split(' ')
-#     bigrams = [' '.join(pair) for pais in zip(['^'] + tokens, tokens + ['$s'])]
-#     # to keep the sequence of word by zip bigram and unigram together
-#     return [t for (b, u) in zip(bigrams, tokens + ['$'])
-#             for t in [b, u]][:-1]  
 
 def load_vocab(vocab_file):
     """Loads a vocabulary file into a dictionary."""
@@ -72,15 +66,4 @@ class Tokenizer(object):
     
     def convert_ids_to_tokens(self, ids):
         return convert_by_vocab(self.inv_vocab, ids)
-
-
-
-if __name__ == "__main__":
-    vocab_file="/home/search/Data/yue.shang/bert/glue_data/SST-2/new_data.parts/words.txt"
-    text = "Then you realize that the alternative path is only different in 1 aspect and then you are bored."
-    tokenizer = Tokenizer(vocab_file)
-    tokens = tokenizer.tokenize(text)
-    ids = tokenizer.convert_tokens_to_ids(tokens)
-    print(tokens)
-    print(ids)
 
