@@ -12,8 +12,8 @@ from config import Config
 
 flags = tf.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_bool("do_train", False, "Whether to run training and eval")
-flags.DEFINE_bool("do_eval", True, "Whether to run eval.")
+flags.DEFINE_bool("do_train", True, "Whether to run training and eval")
+flags.DEFINE_bool("do_eval", False, "Whether to run eval.")
 flags.DEFINE_bool("do_predict", False,
     "Whether to run the model in inference mode on the test set.")
 
@@ -62,6 +62,7 @@ def dnn_model_fn(features, labels, mode, params):
             net, units=units, activation=tf.nn.relu, 
             kernel_regularizer=regularizer
         )
+
         if Config.dropout > 0.0:
             net = tf.layers.dropout(net, Config.dropout, 
                 training=(mode == tf.estimator.ModeKeys.TRAIN))
@@ -139,8 +140,9 @@ def train_and_eval(predictor, train_files_pattern, eval_files_pattern):
 def build_predictor():
     column = tf.feature_column.categorical_column_with_vocabulary_file(
         key='text', vocabulary_file=Config.vocab_file, num_oov_buckets=0, dtype=tf.string)
+    emb_initializer = tf.variance_scaling_initializer(scale=1.0, seed=14, mode='fan_in')
     word_embedding_column = tf.feature_column.embedding_column(
-        column, dimension=Config.embedding_size, combiner="sqrtn")
+        column, dimension=Config.embedding_size, combiner="sqrtn", initializer=emb_initializer)
     
     predictor = tf.estimator.Estimator(
         model_fn=dnn_model_fn,
