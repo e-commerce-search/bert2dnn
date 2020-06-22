@@ -9,6 +9,7 @@ from natsort import natsorted
 import glob
 import random
 from config import Config
+import model
 
 flags = tf.flags
 FLAGS = flags.FLAGS
@@ -41,7 +42,7 @@ def file_based_input_fn_builder(input_files_pattern, is_training):
             filenames = sorted(filenames)
             tf.logging.info("eval/test files: %s" % ','.join(filenames))
         else:
-            random.shuffle(filenames)
+            random.Random(14).shuffle(filenames)
             tf.logging.info("train files: %s" % ','.join(filenames))
 
         d = tf.data.TFRecordDataset(filenames)
@@ -52,74 +53,6 @@ def file_based_input_fn_builder(input_files_pattern, is_training):
         d = d.batch(Config.batch_size)
         return d
     return input_fn
-
-def dnn_model_fn(features, labels, mode, params):
-    feature_columns = params['feature_columns']
-    net = tf.feature_column.input_layer(features, feature_columns)
-    regularizer = tf.contrib.layers.l2_regularizer(Config.regularizer_scale)
-    for units in Config.hidden_units:
-        net = tf.layers.dense(
-            net, units=units, activation=tf.nn.relu, 
-            kernel_regularizer=regularizer
-        )
-
-        if Config.dropout > 0.0:
-            net = tf.layers.dropout(net, Config.dropout, 
-                training=(mode == tf.estimator.ModeKeys.TRAIN))
-
-    logits = tf.layers.dense(net, 1, activation=None,
-            kernel_regularizer=regularizer)
-    probs = tf.nn.sigmoid(logits)
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        predictions = {}
-        predictions['logits'] = logits
-        predictions['probabilities'] = probs
-        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
-    
-    # compute loss
-    labels = tf.expand_dims(labels, 1) 
-    loss = tf.losses.sigmoid_cross_entropy(labels, logits)
-
-    # compute metrics
-    binary_labels = tf.to_int32(tf.greater(labels, Config.label_thres))
-    predicted_class = tf.to_int32(tf.greater(probs, 0.5))
-
-    accuracy = tf.metrics.accuracy(binary_labels, predicted_class)
-    auc = tf.metrics.auc(binary_labels, probs, name='auc')
-    precision = tf.metrics.precision(binary_labels, predicted_class)
-    recall = tf.metrics.recall(binary_labels, predicted_class)
-    metrics = {'auc': auc, 
-        'acc':accuracy, 
-        'precision': precision,
-        'recall': recall}
-    for k, v in metrics.items():
-        tf.summary.scalar(k, v[1])
-
-    # evaluation mode
-    if mode == tf.estimator.ModeKeys.EVAL:
-        summary_hook = tf.train.SummarySaverHook(
-            save_steps=200, output_dir=Config.model_path, 
-            summary_op=tf.summary.merge_all())
-        eval_hooks = [summary_hook]
-        return tf.estimator.EstimatorSpec(mode, loss=loss, 
-        evaluation_hooks=eval_hooks,
-            eval_metric_ops=metrics)
-
-    # Create training op.
-    assert mode == tf.estimator.ModeKeys.TRAIN
-    if Config.optimizer == "adam":
-        optimizer = tf.train.AdamOptimizer(learning_rate=Config.learning_rate)
-    elif Config.optimizer == "adagrad":
-        optimizer = tf.train.AdagradOptimizer(learning_rate=Config.learning_rate)
-    else:
-        raise Exception('Unsupported optimizer...')
-    
-    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
-    logging_hook = tf.train.LoggingTensorHook({"loss" : loss, 
-        "accuracy" : accuracy[1]}, every_n_iter=200)
-    
-    return tf.estimator.EstimatorSpec(mode, loss=loss, 
-        train_op=train_op, training_hooks=[logging_hook])
 
 def train_and_eval(predictor, train_files_pattern, eval_files_pattern):
     train_input_fn = file_based_input_fn_builder(
@@ -139,13 +72,14 @@ def train_and_eval(predictor, train_files_pattern, eval_files_pattern):
 
 def build_predictor():
     column = tf.feature_column.categorical_column_with_vocabulary_file(
-        key='text', vocabulary_file=Config.vocab_file, num_oov_buckets=0, dtype=tf.string)
-    emb_initializer = tf.variance_scaling_initializer(scale=1.0, seed=14, mode='fan_in')
+        key='text', vocabulary_file=Config.vocab_file, vocabulary_size=Config.vocab_size,
+        num_oov_buckets=0, dtype=tf.string)
+    emb_initializer = tf.variance_scaling_initializer(scale=1.0, seed=1, mode='fan_in')
     word_embedding_column = tf.feature_column.embedding_column(
         column, dimension=Config.embedding_size, combiner="sqrtn", initializer=emb_initializer)
     
     predictor = tf.estimator.Estimator(
-        model_fn=dnn_model_fn,
+        model_fn=model.dnn_model_fn,
         params={
             "feature_columns": word_embedding_column
         },
@@ -170,7 +104,7 @@ def main(_):
             input_files_pattern=eval_files_pattern,
             is_training=False)
         # change to None when use SST to evaluate all data
-        result = predictor.evaluate(input_fn=eval_input_fn, steps=2000) 
+        result = predictor.evaluate(input_fn=eval_input_fn, steps=None) 
         for key in sorted(result.keys()):
             tf.logging.info("  %s = %s", key, str(result[key]))
     

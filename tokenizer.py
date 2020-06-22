@@ -6,7 +6,7 @@ def load_vocab(vocab_file):
     """Loads a vocabulary file into a dictionary."""
     vocab = collections.OrderedDict()
     index = 0
-    with tf.gfile.GFile(vocab_file, "r") as reader:
+    with tf.io.gfile.GFile(vocab_file, "r") as reader:
         while True:
             token = convert_to_unicode(reader.readline())
             if not token:
@@ -14,7 +14,7 @@ def load_vocab(vocab_file):
             token = token.strip()
             vocab[token] = index
             index += 1
-    print("Done... vocab_size is %d" % len(vocab))
+    tf.logging.info("Done... vocab_size is %d" % len(vocab))
     return vocab
 
 def convert_by_vocab(vocab, items):
@@ -49,7 +49,6 @@ def convert_to_unicode(text):
 
 class Tokenizer(object):
     def __init__(self, vocab_file):
-        print("init")
         self.vocab = load_vocab(vocab_file)
         self.inv_vocab = {v: k for k, v in self.vocab.items()}
     

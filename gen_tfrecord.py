@@ -10,9 +10,8 @@ class InputExample(object):
         self.text = text
         self.label = label
 
-
 def read_tsv(input_file):
-    with tf.gfile.Open(input_file, "r") as f:
+    with tf.io.gfile.GFile(input_file, "r") as f:
             reader = csv.reader(f, delimiter="\t", quotechar=None)
             lines = []
             for line in reader:
@@ -48,7 +47,7 @@ def create_tf_example(example, tokenizer):
 
 def file_based_convert_examples_to_tfrecord(
     examples, tokenizer, output_file):
-    writer = tf.python_io.TFRecordWriter(output_file)
+    writer = tf.io.TFRecordWriter(output_file)
     prev_text_a = None
     query_id = -1  # assuming continguous examples for same text_a.
     for (ex_index, example) in enumerate(examples):
@@ -58,7 +57,7 @@ def file_based_convert_examples_to_tfrecord(
         tf_example = create_tf_example(example, tokenizer)
         writer.write(tf_example.SerializeToString())
     writer.close()
-    print("Done write tfrecords to %s" %output_file)
+    tf.logging.info("Done write tfrecords to %s" %output_file)
 
 
 if __name__ == "__main__":
@@ -74,7 +73,7 @@ if __name__ == "__main__":
     idx_label = args.idx_label
 
     train_examples = get_train_examples(input_file, idx_text, idx_label)
-    print("Number of train examples is %d" %len(train_examples))
+    tf.logging.info("Number of train examples is %d" %len(train_examples))
     tokenizer = Tokenizer(Config.vocab_file)
     if not os.path.exists(output_file):
         file_based_convert_examples_to_tfrecord(train_examples, 

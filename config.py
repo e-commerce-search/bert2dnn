@@ -1,14 +1,15 @@
 class Config:
-    visible_gpus = "0,1,2,3"
+    visible_gpus = "4,5,6,7"
     vocab_file="./dict/words.txt"
+    vocab_size=150000
     embedding_size = 64
-    epoches = 1
+    epoches = 3
     dropout = 0
     hidden_units = [1024, 512,128, 64]
     batch_size = 128
     regularizer_scale = 0.01
     learning_rate = 0.01
-    data_dir = "./tfrecords"
+    data_dir = "./tfrecords_prob2"
     input_files = "part-*[1-9].tfrecord"
     eval_files = "part-*0.tfrecord"
     test_files = "part-00.tfrecord"
